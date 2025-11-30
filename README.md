@@ -39,6 +39,12 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 }
 ```
 
+### Claude Code
+Run the following:
+```shell
+claude mcp add --scope user --transport stdio code-index <path-to>/code-index-mcp
+```
+
 ### Environment Variables
 
 - `CODE_INDEX_DIR`: Override the default index storage location
