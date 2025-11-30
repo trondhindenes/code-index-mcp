@@ -11,11 +11,25 @@ An MCP (Model Context Protocol) server for fast local source code searching usin
 
 ## Installation
 
+### From MCP Registry (Recommended)
+
+This server is available on the [MCP Registry](https://registry.modelcontextprotocol.io/?q=trondhindenes%2Fcode-index). You can install it using the MCPB CLI:
+
+```bash
+# Install mcpb CLI if you haven't already
+npm install -g @anthropic-ai/mcpb
+
+# Install the server
+mcpb install io.github.trondhindenes/code-index-mcp
+```
+
+### Using Go
+
 ```bash
 go install github.com/trondhindenes/code-index-mcp@latest
 ```
 
-Or build from source:
+### Build from Source
 
 ```bash
 git clone https://github.com/trondhindenes/code-index-mcp
