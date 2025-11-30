@@ -1,153 +1,128 @@
-# MCP Registry
+# Code Index MCP Server
 
-The MCP registry provides MCP clients with a list of MCP servers, like an app store for MCP servers.
+An MCP (Model Context Protocol) server for fast local source code searching using [Zoekt](https://github.com/sourcegraph/zoekt).
 
-[**📤 Publish my MCP server**](docs/guides/publishing/publish-server.md) | [**⚡️ Live API docs**](https://registry.modelcontextprotocol.io/docs) | [**👀 Ecosystem vision**](docs/explanations/ecosystem-vision.md) | 📖 **[Full documentation](./docs)**
+## Features
 
-## Development Status
+- **Fast code search**: Uses Zoekt's trigram-based indexing for fast substring and regex matching
+- **Per-directory indexes**: Each indexed directory gets its own index stored in the user profile
+- **Rich query language**: Supports regex, file filters, language filters, and boolean operators
+- **Cross-platform**: Works on macOS and Linux
 
-**2025-10-24 update**: The Registry API has entered an **API freeze (v0.1)** 🎉. For the next month or more, the API will remain stable with no breaking changes, allowing integrators to confidently implement support. This freeze applies to v0.1 while development continues on v0. We'll use this period to validate the API in real-world integrations and gather feedback to shape v1 for general availability. Thank you to everyone for your contributions and patience—your involvement has been key to getting us here!
-
-**2025-09-08 update**: The registry has launched in preview 🎉 ([announcement blog post](https://blog.modelcontextprotocol.io/posts/2025-09-08-mcp-registry-preview/)). While the system is now more stable, this is still a preview release and breaking changes or data resets may occur. A general availability (GA) release will follow later. We'd love your feedback in [GitHub discussions](https://github.com/modelcontextprotocol/registry/discussions/new?category=ideas) or in the [#registry-dev Discord](https://discord.com/channels/1358869848138059966/1369487942862504016) ([joining details here](https://modelcontextprotocol.io/community/communication)).
-
-Current key maintainers:
-- **Adam Jones** (Anthropic) [@domdomegg](https://github.com/domdomegg)  
-- **Tadas Antanavicius** (PulseMCP) [@tadasant](https://github.com/tadasant)
-- **Toby Padilla** (GitHub) [@toby](https://github.com/toby)
-- **Radoslav (Rado) Dimitrov** (Stacklok) [@rdimitrov](https://github.com/rdimitrov)
-
-## Contributing
-
-We use multiple channels for collaboration - see [modelcontextprotocol.io/community/communication](https://modelcontextprotocol.io/community/communication).
-
-Often (but not always) ideas flow through this pipeline:
-
-- **[Discord](https://modelcontextprotocol.io/community/communication)** - Real-time community discussions
-- **[Discussions](https://github.com/modelcontextprotocol/registry/discussions)** - Propose and discuss product/technical requirements
-- **[Issues](https://github.com/modelcontextprotocol/registry/issues)** - Track well-scoped technical work  
-- **[Pull Requests](https://github.com/modelcontextprotocol/registry/pulls)** - Contribute work towards issues
-
-### Quick start:
-
-#### Pre-requisites
-
-- **Docker**
-- **Go 1.24.x**
-- **ko** - Container image builder for Go ([installation instructions](https://ko.build/install/))
-- **golangci-lint v2.4.0**
-
-#### Running the server
+## Installation
 
 ```bash
-# Start full development environment
-make dev-compose
+go install github.com/trondhindenes/code-index-mcp@latest
 ```
 
-This starts the registry at [`localhost:8080`](http://localhost:8080) with PostgreSQL. The database uses ephemeral storage and is reset each time you restart the containers, ensuring a clean state for development and testing.
-
-**Note:** The registry uses [ko](https://ko.build) to build container images. The `make dev-compose` command automatically builds the registry image with ko and loads it into your local Docker daemon before starting the services.
-
-By default, the registry seeds from the production API with a filtered subset of servers (to keep startup fast). This ensures your local environment mirrors production behavior and all seed data passes validation. For offline development you can seed from a file without validation with `MCP_REGISTRY_SEED_FROM=data/seed.json MCP_REGISTRY_ENABLE_REGISTRY_VALIDATION=false make dev-compose`.
-
-The setup can be configured with environment variables in [docker-compose.yml](./docker-compose.yml) - see [.env.example](./.env.example) for a reference.
-
-<details>
-<summary>Alternative: Running a pre-built Docker image</summary>
-
-Pre-built Docker images are automatically published to GitHub Container Registry:
+Or build from source:
 
 ```bash
-# Run latest stable release
-docker run -p 8080:8080 ghcr.io/modelcontextprotocol/registry:latest
-
-# Run latest from main branch (continuous deployment)
-docker run -p 8080:8080 ghcr.io/modelcontextprotocol/registry:main
-
-# Run specific release version
-docker run -p 8080:8080 ghcr.io/modelcontextprotocol/registry:v1.0.0
-
-# Run development build from main branch
-docker run -p 8080:8080 ghcr.io/modelcontextprotocol/registry:main-20250906-abc123d
+git clone https://github.com/trondhindenes/code-index-mcp
+cd code-index-mcp
+go build -o code-index-mcp .
 ```
 
-**Available tags:** 
-- **Releases**: `latest`, `v1.0.0`, `v1.1.0`, etc.
-- **Continuous**: `main` (latest main branch build)
-- **Development**: `main-<date>-<sha>` (specific commit builds)
+## Configuration
 
-</details>
+### Claude Desktop
 
-#### Publishing a server
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
-To publish a server, we've built a simple CLI. You can use it with:
-
-```bash
-# Build the latest CLI
-make publisher
-
-# Use it!
-./bin/mcp-publisher --help
+```json
+{
+  "mcpServers": {
+    "code-index": {
+      "command": "/path/to/code-index-mcp"
+    }
+  }
+}
 ```
 
-See [the publisher guide](./docs/guides/publishing/publish-server.md) for more details.
-
-#### Other commands
-
-```bash
-# Run lint, unit tests and integration tests
-make check
+### Claude Code
+Run the following:
+```shell
+claude mcp add --scope user --transport stdio code-index <path-to>/code-index-mcp
 ```
 
-There are also a few more helpful commands for development. Run `make help` to learn more, or look in [Makefile](./Makefile).
+### Environment Variables
 
-<!--
-For Claude and other AI tools: Always prefer make targets over custom commands where possible.
--->
+- `CODE_INDEX_DIR`: Override the default index storage location
 
-## Architecture
+Default index locations:
+- macOS: `~/Library/Application Support/code-index/`
+- Linux: `~/.local/share/code-index/` or `$XDG_DATA_HOME/code-index/`
 
-### Project Structure
+## Available Tools
 
+### `index_directory`
+
+Index a source code directory for fast searching.
+
+**Parameters:**
+- `directory` (required): The path to the directory to index
+
+**Example:**
 ```
-├── cmd/                     # Application entry points
-│   └── publisher/           # Server publishing tool
-├── data/                    # Seed data
-├── deploy/                  # Deployment configuration (Pulumi)
-├── docs/                    # Documentation
-├── internal/                # Private application code
-│   ├── api/                 # HTTP handlers and routing
-│   ├── auth/                # Authentication (GitHub OAuth, JWT, namespace blocking)
-│   ├── config/              # Configuration management
-│   ├── database/            # Data persistence (PostgreSQL)
-│   ├── service/             # Business logic
-│   ├── telemetry/           # Metrics and monitoring
-│   └── validators/          # Input validation
-├── pkg/                     # Public packages
-│   ├── api/                 # API types and structures
-│   │   └── v0/              # Version 0 API types
-│   └── model/               # Data models for server.json
-├── scripts/                 # Development and testing scripts
-├── tests/                   # Integration tests
-└── tools/                   # CLI tools and utilities
-    └── validate-*.sh        # Schema validation tools
+Index the directory /Users/me/projects/myapp
 ```
 
-### Authentication
+### `search_code`
 
-Publishing supports multiple authentication methods:
-- **GitHub OAuth** - For publishing by logging into GitHub
-- **GitHub OIDC** - For publishing from GitHub Actions
-- **DNS verification** - For proving ownership of a domain and its subdomains
-- **HTTP verification** - For proving ownership of a domain
+Search for code across indexed directories. Returns compact grep-like output to minimize context window usage.
 
-The registry validates namespace ownership when publishing. E.g. to publish...:
-- `io.github.domdomegg/my-cool-mcp` you must login to GitHub as `domdomegg`, or be in a GitHub Action on domdomegg's repos
-- `me.adamjones/my-cool-mcp` you must prove ownership of `adamjones.me` via DNS or HTTP challenge
+**Parameters:**
+- `query` (required): The search query using Zoekt syntax
+- `directory` (optional): Limit search to a specific indexed directory
+- `max_files` (optional): Maximum files to return (default: 20)
+- `max_lines_per_file` (optional): Maximum matches per file (default: 3)
+- `files_only` (optional): Only return file paths, no line content (default: false)
 
-## Community Projects
+**Output Format:**
+```
+/path/to/file.go:42: matching line content here
+/path/to/file.go:58: another matching line
+  ... and 5 more matches in this file
+```
 
-Check out [community projects](docs/community-projects.md) to explore notable registry-related work created by the community.
+**Query Syntax Examples:**
+- `func main` - Simple text search
+- `file:\.go$ func main` - Search only in .go files
+- `lang:python class.*Model` - Search in Python files
+- `-test func main` - Exclude files containing "test"
+- `case:yes MyFunc` - Case-sensitive search
 
-## More documentation
+### `list_indexes`
 
-See the [documentation](./docs) for more details if your question has not been answered here!
+List all indexed directories and their locations.
+
+### `delete_index`
+
+Delete the index for a specific directory.
+
+**Parameters:**
+- `directory` (required): The path to the directory whose index should be deleted
+
+### `index_info`
+
+Get information about the indexing configuration, including storage location.
+
+## Skipped Directories
+
+The following directories are automatically skipped during indexing:
+- Hidden directories (starting with `.`)
+- `node_modules`, `vendor`, `__pycache__`
+- `target`, `build`, `dist`
+- `venv`, `.venv`, `env`, `.env`
+
+## Skipped Files
+
+Binary files and common non-code files are automatically skipped, including:
+- Executables (`.exe`, `.dll`, `.so`, `.dylib`)
+- Archives (`.zip`, `.tar`, `.gz`)
+- Images (`.png`, `.jpg`, `.gif`)
+- Documents (`.pdf`, `.doc`, `.docx`)
+
+## License
+
+MIT

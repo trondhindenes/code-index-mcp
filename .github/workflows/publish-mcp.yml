@@ -59,11 +59,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-
       - name: Install mcp-publisher
         run: |
           # Download the latest mcp-publisher release
@@ -76,37 +71,39 @@ jobs:
           jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' manifest.json > manifest.tmp.json
           mv manifest.tmp.json manifest.json
 
-      - name: Build and package MCPB bundles
+      - name: Download binaries and package MCPB bundles
         run: |
-          mkdir -p dist bundles
+          TAG="${{ steps.version.outputs.tag }}"
+          mkdir -p downloads bundles
 
-          # Build for each platform
+          # Download all release assets
+          gh release download "$TAG" --dir downloads --pattern "*.tar.gz"
+          ls -la downloads/
+
+          # Package each platform into MCPB bundle
           platforms=(
-            "darwin:amd64"
-            "darwin:arm64"
-            "linux:amd64"
-            "linux:arm64"
+            "darwin-amd64"
+            "darwin-arm64"
+            "linux-amd64"
+            "linux-arm64"
           )
 
           for platform in "${platforms[@]}"; do
-            GOOS="${platform%%:*}"
-            GOARCH="${platform##*:}"
+            echo "Packaging $platform..."
 
-            echo "Building for $GOOS/$GOARCH..."
-
-            # Build binary
-            CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o dist/code-index-mcp .
+            # Extract binary from tarball
+            tar -xzf "downloads/code-index-mcp-${platform}.tar.gz" -C downloads
 
             # Create MCPB bundle directory
-            bundle_dir="bundle-$GOOS-$GOARCH"
+            bundle_dir="bundle-$platform"
             mkdir -p "$bundle_dir"
 
             # Copy manifest and binary
             cp manifest.json "$bundle_dir/"
-            cp dist/code-index-mcp "$bundle_dir/"
+            cp downloads/code-index-mcp "$bundle_dir/"
 
             # Create MCPB bundle (ZIP file)
-            bundle_name="code-index-mcp-$GOOS-$GOARCH.mcpb"
+            bundle_name="code-index-mcp-${platform}.mcpb"
             cd "$bundle_dir"
             zip -r "../bundles/$bundle_name" .
             cd ..
@@ -115,10 +112,12 @@ jobs:
             sha256sum "bundles/$bundle_name" | awk '{print $1}' > "bundles/$bundle_name.sha256"
 
             # Cleanup
-            rm -rf "$bundle_dir" dist/code-index-mcp
+            rm -rf "$bundle_dir" downloads/code-index-mcp
           done
 
           ls -la bundles/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate server.json with packages
         run: |
