@@ -17,7 +17,11 @@
   "license": "MIT",
   "server": {
     "type": "binary",
-    "entry_point": "code-index-mcp"
+    "entry_point": "code-index-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/code-index-mcp",
+      "args": []
+    }
   },
   "tools": [
     {
