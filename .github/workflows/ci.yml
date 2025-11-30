@@ -78,10 +78,10 @@ jobs:
             goarch: arm64
 
           # Windows
-          - goos: windows
-            goarch: amd64
-          - goos: windows
-            goarch: arm64
+          # - goos: windows
+          #   goarch: amd64
+          # - goos: windows
+          #   goarch: arm64
 
           # FreeBSD
           - goos: freebsd
