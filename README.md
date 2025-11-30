@@ -10,12 +10,9 @@ An MCP (Model Context Protocol) server for fast local source code searching usin
 - **Cross-platform**: Works on macOS and Linux
 
 ## Installation
+This server is available on the [MCP Registry](https://registry.modelcontextprotocol.io/?q=trondhindenes%2Fcode-index).
 
-### From MCP Registry (Recommended)
-
-This server is available on the [MCP Registry](https://registry.modelcontextprotocol.io/?q=trondhindenes%2Fcode-index). If you're using Claude Desktop or another MCP client that supports the registry, you can install it directly from there.
-
-### Download Pre-built Binary
+### Download Pre-built MCPB bundle (experimental)
 
 Download the appropriate `.mcpb` bundle for your platform from the [GitHub Releases](https://github.com/trondhindenes/code-index-mcp/releases) page:
 
@@ -24,15 +21,27 @@ Download the appropriate `.mcpb` bundle for your platform from the [GitHub Relea
 - `code-index-mcp-linux-amd64.mcpb` - Linux x64
 - `code-index-mcp-linux-arm64.mcpb` - Linux ARM64
 
-The `.mcpb` file is a ZIP archive containing the binary and manifest. Extract it and place the `code-index-mcp` binary in your preferred location.
+The `.mcpb` file is a ZIP archive containing the binary and manifest. You can open it directly in Claude Desktop in order to install it
 
-### Using Go
+
+### Manual installation (recommended)
+In order to get the binary onto your computer, you can do one of the following:
+#### Download from releases
+Go to [GitHub Releases](https://github.com/trondhindenes/code-index-mcp/releases) and download 
+the appropriate file (not mcpb but the tar/gzipped ones corresponding to your platform).
+For example:
+```shell
+curl -sL https://github.com/trondhindenes/code-index-mcp/releases/download/1.0.13/code-index-mcp-darwin-arm64.tar.gz | tar xz
+chmod +x code-index-mcp
+```
+
+#### Using Go
 
 ```bash
 go install github.com/trondhindenes/code-index-mcp@latest
 ```
 
-### Build from Source
+#### Build from Source
 
 ```bash
 git clone https://github.com/trondhindenes/code-index-mcp
@@ -40,7 +49,10 @@ cd code-index-mcp
 go build -o code-index-mcp .
 ```
 
+
 ## Configuration
+Now that you have the binary installed locally, you can register it in your tools of choice. 
+This should not be necessary if you installed via mcpb bundle but your mileage may vary.
 
 ### Claude Desktop
 
@@ -59,7 +71,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 ### Claude Code
 Run the following:
 ```shell
-claude mcp add --scope user --transport stdio code-index <path-to>/code-index-mcp
+claude mcp add --scope user --transport stdio code-index /path/to/code-index-mcp
 ```
 
 ### Environment Variables
