@@ -13,15 +13,18 @@ An MCP (Model Context Protocol) server for fast local source code searching usin
 
 ### From MCP Registry (Recommended)
 
-This server is available on the [MCP Registry](https://registry.modelcontextprotocol.io/?q=trondhindenes%2Fcode-index). You can install it using the MCPB CLI:
+This server is available on the [MCP Registry](https://registry.modelcontextprotocol.io/?q=trondhindenes%2Fcode-index). If you're using Claude Desktop or another MCP client that supports the registry, you can install it directly from there.
 
-```bash
-# Install mcpb CLI if you haven't already
-npm install -g @anthropic-ai/mcpb
+### Download Pre-built Binary
 
-# Install the server
-mcpb install io.github.trondhindenes/code-index-mcp
-```
+Download the appropriate `.mcpb` bundle for your platform from the [GitHub Releases](https://github.com/trondhindenes/code-index-mcp/releases) page:
+
+- `code-index-mcp-darwin-arm64.mcpb` - macOS Apple Silicon
+- `code-index-mcp-darwin-amd64.mcpb` - macOS Intel
+- `code-index-mcp-linux-amd64.mcpb` - Linux x64
+- `code-index-mcp-linux-arm64.mcpb` - Linux ARM64
+
+The `.mcpb` file is a ZIP archive containing the binary and manifest. Extract it and place the `code-index-mcp` binary in your preferred location.
 
 ### Using Go
 
