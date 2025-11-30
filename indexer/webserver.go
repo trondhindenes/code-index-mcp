@@ -14,12 +14,12 @@ import (
 
 // WebServerManager manages the Zoekt web server lifecycle
 type WebServerManager struct {
-	mu         sync.Mutex
-	server     *http.Server
-	indexDir   string
-	port       int
-	running    bool
-	startedAt  time.Time
+	mu        sync.Mutex
+	server    *http.Server
+	indexDir  string
+	port      int
+	running   bool
+	startedAt time.Time
 }
 
 // WebServerStatus contains information about the web server state
