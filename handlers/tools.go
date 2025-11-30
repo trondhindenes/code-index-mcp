@@ -14,11 +14,13 @@ import (
 )
 
 var manager *indexer.IndexManager
+var webServerManager *indexer.WebServerManager
 
 func init() {
 	// Initialize the index manager with user profile directory
 	indexDir := getIndexDirectory()
 	manager = indexer.NewIndexManager(indexDir)
+	webServerManager = indexer.NewWebServerManager(indexDir)
 }
 
 // getIndexDirectory returns the directory where indexes should be stored
@@ -112,6 +114,27 @@ func RegisterTools(s *server.MCPServer) {
 		mcp.WithDescription("Get information about the indexing configuration, including the index storage location"),
 	)
 	s.AddTool(infoTool, handleIndexInfo)
+
+	// Start webserver tool
+	startWebserverTool := mcp.NewTool("start_webserver",
+		mcp.WithDescription("Start the Zoekt web server for interactive code search in a browser. The server runs in the background and provides a web UI for searching indexed code. Port can be configured via CODE_INDEX_WEBSERVER_PORT environment variable (default: 6070)."),
+		mcp.WithNumber("port",
+			mcp.Description("Port to run the web server on. Overrides CODE_INDEX_WEBSERVER_PORT env var. Use 0 for random available port."),
+		),
+	)
+	s.AddTool(startWebserverTool, handleStartWebserver)
+
+	// Stop webserver tool
+	stopWebserverTool := mcp.NewTool("stop_webserver",
+		mcp.WithDescription("Stop the running Zoekt web server"),
+	)
+	s.AddTool(stopWebserverTool, handleStopWebserver)
+
+	// Webserver status tool
+	webserverStatusTool := mcp.NewTool("webserver_status",
+		mcp.WithDescription("Get the current status of the Zoekt web server"),
+	)
+	s.AddTool(webserverStatusTool, handleWebserverStatus)
 }
 
 func handleIndexDirectory(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -198,6 +221,53 @@ func handleIndexInfo(ctx context.Context, request mcp.CallToolRequest) (*mcp.Cal
 	output, err := json.MarshalIndent(info, "", "  ")
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to format info: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(string(output)), nil
+}
+
+// getDefaultWebserverPort returns the default port from env or 6070
+func getDefaultWebserverPort() int {
+	if portStr := os.Getenv("CODE_INDEX_WEBSERVER_PORT"); portStr != "" {
+		var port int
+		if _, err := fmt.Sscanf(portStr, "%d", &port); err == nil && port > 0 {
+			return port
+		}
+	}
+	return 6070
+}
+
+func handleStartWebserver(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Get port from request or use default
+	port := int(request.GetFloat("port", float64(getDefaultWebserverPort())))
+
+	status, err := webServerManager.Start(port)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to start web server: %v", err)), nil
+	}
+
+	output, err := json.MarshalIndent(status, "", "  ")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to format status: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("Web server started successfully!\n%s", string(output))), nil
+}
+
+func handleStopWebserver(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := webServerManager.Stop(); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to stop web server: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText("Web server stopped successfully"), nil
+}
+
+func handleWebserverStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	status := webServerManager.Status()
+
+	output, err := json.MarshalIndent(status, "", "  ")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to format status: %v", err)), nil
 	}
 
 	return mcp.NewToolResultText(string(output)), nil
