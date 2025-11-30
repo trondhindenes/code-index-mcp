@@ -1,28 +1,68 @@
 name: Publish to MCP Registry
 
 on:
-  release:
-    types: [created]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
 
 permissions:
-  contents: read
+  contents: write
   id-token: write  # Required for GitHub OIDC authentication
 
 jobs:
   publish:
     name: Publish to MCP Registry
     runs-on: ubuntu-latest
+    # Only run if CI succeeded and created a release, or if manually triggered
+    if: >
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger - use input
+            TAG="${{ inputs.version }}"
+          else
+            # Triggered by CI workflow - get latest release tag
+            TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+          fi
+
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION (tag: $TAG)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if release exists
+        id: check_release
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::error::Release ${{ steps.version.outputs.tag }} does not exist"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-
-      - name: Install mcpb CLI
-        run: npm install -g @anthropic-ai/mcpb
 
       - name: Install mcp-publisher
         run: |
@@ -30,14 +70,6 @@ jobs:
           curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64.tar.gz | tar xz
           chmod +x mcp-publisher
           sudo mv mcp-publisher /usr/local/bin/
-
-      - name: Get version from tag
-        id: version
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-          VERSION="${VERSION#v}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Update manifest.json version
         run: |
@@ -147,11 +179,10 @@ jobs:
           cat server.json
 
       - name: Upload MCPB bundles to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: bundles/*.mcpb
+        run: |
+          gh release upload "${{ steps.version.outputs.tag }}" bundles/*.mcpb --clobber
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to MCP Registry
         run: |
