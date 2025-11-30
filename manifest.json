@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "code-index-mcp",
+  "display_name": "Code Index",
+  "version": "1.0.0",
+  "description": "Fast local source code searching using Zoekt trigram-based indexing",
+  "long_description": "An MCP server that provides fast local source code searching using Zoekt's trigram-based indexing. Features include per-directory indexes, rich query language with regex support, file and language filters, and cross-platform compatibility.",
+  "author": {
+    "name": "trondhindenes",
+    "url": "https://github.com/trondhindenes"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/trondhindenes/code-index-mcp"
+  },
+  "homepage": "https://github.com/trondhindenes/code-index-mcp",
+  "license": "MIT",
+  "server": {
+    "type": "binary",
+    "entry_point": "code-index-mcp"
+  },
+  "tools": [
+    {
+      "name": "index_directory",
+      "description": "Index a source code directory for fast searching"
+    },
+    {
+      "name": "search_code",
+      "description": "Search for code across indexed directories using Zoekt query syntax"
+    },
+    {
+      "name": "list_indexes",
+      "description": "List all indexed directories and their status"
+    },
+    {
+      "name": "delete_index",
+      "description": "Delete the index for a specific directory"
+    },
+    {
+      "name": "index_info",
+      "description": "Get information about the indexing configuration"
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "linux"]
+  },
+  "keywords": [
+    "code-search",
+    "zoekt",
+    "indexing",
+    "grep",
+    "search"
+  ]
+}

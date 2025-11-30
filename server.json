@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.trondhindenes/code-index-mcp",
+  "title": "Code Index",
+  "description": "Fast local source code searching using Zoekt trigram-based indexing",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/trondhindenes/code-index-mcp",
+    "source": "github"
+  },
+  "packages": []
+}

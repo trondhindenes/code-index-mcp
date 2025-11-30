@@ -7,7 +7,7 @@ An MCP (Model Context Protocol) server for fast local source code searching usin
 - **Fast code search**: Uses Zoekt's trigram-based indexing for fast substring and regex matching
 - **Per-directory indexes**: Each indexed directory gets its own index stored in the user profile
 - **Rich query language**: Supports regex, file filters, language filters, and boolean operators
-- **Cross-platform**: Works on macOS, Linux, and Windows
+- **Multi-platform**: Works on macOS and Linux
 
 ## Installation
 

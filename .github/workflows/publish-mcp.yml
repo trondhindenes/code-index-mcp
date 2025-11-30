@@ -1,0 +1,159 @@
+name: Publish to MCP Registry
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write  # Required for GitHub OIDC authentication
+
+jobs:
+  publish:
+    name: Publish to MCP Registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install mcpb CLI
+        run: npm install -g @anthropic-ai/mcpb
+
+      - name: Install mcp-publisher
+        run: |
+          # Download the latest mcp-publisher release
+          curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64.tar.gz | tar xz
+          chmod +x mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json version
+        run: |
+          jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' manifest.json > manifest.tmp.json
+          mv manifest.tmp.json manifest.json
+
+      - name: Build and package MCPB bundles
+        run: |
+          mkdir -p dist bundles
+
+          # Build for each platform
+          platforms=(
+            "darwin:amd64"
+            "darwin:arm64"
+            "linux:amd64"
+            "linux:arm64"
+          )
+
+          for platform in "${platforms[@]}"; do
+            GOOS="${platform%%:*}"
+            GOARCH="${platform##*:}"
+
+            echo "Building for $GOOS/$GOARCH..."
+
+            # Build binary
+            CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o dist/code-index-mcp .
+
+            # Create MCPB bundle directory
+            bundle_dir="bundle-$GOOS-$GOARCH"
+            mkdir -p "$bundle_dir"
+
+            # Copy manifest and binary
+            cp manifest.json "$bundle_dir/"
+            cp dist/code-index-mcp "$bundle_dir/"
+
+            # Create MCPB bundle (ZIP file)
+            bundle_name="code-index-mcp-$GOOS-$GOARCH.mcpb"
+            cd "$bundle_dir"
+            zip -r "../bundles/$bundle_name" .
+            cd ..
+
+            # Compute SHA256
+            sha256sum "bundles/$bundle_name" | awk '{print $1}' > "bundles/$bundle_name.sha256"
+
+            # Cleanup
+            rm -rf "$bundle_dir" dist/code-index-mcp
+          done
+
+          ls -la bundles/
+
+      - name: Generate server.json with packages
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="trondhindenes/code-index-mcp"
+
+          # Read SHA256 hashes
+          SHA_DARWIN_AMD64=$(cat bundles/code-index-mcp-darwin-amd64.mcpb.sha256)
+          SHA_DARWIN_ARM64=$(cat bundles/code-index-mcp-darwin-arm64.mcpb.sha256)
+          SHA_LINUX_AMD64=$(cat bundles/code-index-mcp-linux-amd64.mcpb.sha256)
+          SHA_LINUX_ARM64=$(cat bundles/code-index-mcp-linux-arm64.mcpb.sha256)
+
+          cat > server.json << EOF
+          {
+            "\$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+            "name": "io.github.trondhindenes/code-index-mcp",
+            "title": "Code Index",
+            "description": "Fast local source code searching using Zoekt trigram-based indexing",
+            "version": "$VERSION",
+            "repository": {
+              "url": "https://github.com/$REPO",
+              "source": "github"
+            },
+            "packages": [
+              {
+                "registryType": "mcpb",
+                "identifier": "https://github.com/$REPO/releases/download/$TAG/code-index-mcp-darwin-amd64.mcpb",
+                "version": "$VERSION",
+                "fileSha256": "$SHA_DARWIN_AMD64",
+                "transport": { "type": "stdio" }
+              },
+              {
+                "registryType": "mcpb",
+                "identifier": "https://github.com/$REPO/releases/download/$TAG/code-index-mcp-darwin-arm64.mcpb",
+                "version": "$VERSION",
+                "fileSha256": "$SHA_DARWIN_ARM64",
+                "transport": { "type": "stdio" }
+              },
+              {
+                "registryType": "mcpb",
+                "identifier": "https://github.com/$REPO/releases/download/$TAG/code-index-mcp-linux-amd64.mcpb",
+                "version": "$VERSION",
+                "fileSha256": "$SHA_LINUX_AMD64",
+                "transport": { "type": "stdio" }
+              },
+              {
+                "registryType": "mcpb",
+                "identifier": "https://github.com/$REPO/releases/download/$TAG/code-index-mcp-linux-arm64.mcpb",
+                "version": "$VERSION",
+                "fileSha256": "$SHA_LINUX_ARM64",
+                "transport": { "type": "stdio" }
+              }
+            ]
+          }
+          EOF
+
+          cat server.json
+
+      - name: Upload MCPB bundles to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bundles/*.mcpb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to MCP Registry
+        run: |
+          mcp-publisher login github-oidc
+          mcp-publisher publish --file server.json
